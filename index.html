@@ -1,0 +1,612 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Family 100</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #1e3a8a, #0f172a);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        .anton-font {
+            font-family: 'Anton', sans-serif;
+        }
+
+        /* Board Styling */
+        .board-container {
+            background: #000;
+            border: 8px solid #cbd5e1;
+            border-radius: 16px;
+            box-shadow: 0 0 30px rgba(59, 130, 246, 0.5), inset 0 0 20px rgba(0, 0, 0, 0.8);
+            padding: 10px;
+        }
+
+        .answer-slot {
+            background: linear-gradient(to bottom, #1e293b, #0f172a);
+            border: 2px solid #475569;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+            height: 48px;
+            position: relative;
+            overflow: hidden;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+        }
+
+        .answer-number {
+            background: linear-gradient(to bottom, #3b82f6, #1d4ed8);
+            color: white;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Anton', sans-serif;
+            font-size: 1.2rem;
+            margin: auto;
+            text-shadow: 1px 1px 2px black;
+            border: 2px solid #60a5fa;
+        }
+
+        /* Front/Back Flip Animation */
+        .flipper {
+            transition: 0.6s;
+            transform-style: preserve-3d;
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .answer-slot.revealed .flipper {
+            transform: rotateX(180deg);
+        }
+
+        .front, .back {
+            backface-visibility: hidden;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+        }
+
+        .front {
+            z-index: 2;
+            transform: rotateX(0deg);
+            background: repeating-linear-gradient(
+                45deg,
+                #1e293b,
+                #1e293b 10px,
+                #0f172a 10px,
+                #0f172a 20px
+            );
+        }
+
+        .back {
+            transform: rotateX(180deg);
+            background: linear-gradient(to bottom, #e2e8f0, #cbd5e1);
+            color: #0f172a;
+            border: 2px solid #94a3b8;
+        }
+
+        .answer-text {
+            font-weight: bold;
+            font-size: 1.2rem;
+            padding-left: 1rem;
+            flex-grow: 1;
+            text-transform: uppercase;
+            text-shadow: 1px 1px 0px rgba(255,255,255,0.5);
+        }
+
+        .answer-points {
+            background: #2563eb;
+            color: white;
+            padding: 0 1rem;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            font-family: 'Anton', sans-serif;
+            font-size: 1.5rem;
+            border-left: 2px solid #000;
+        }
+
+        /* Strike (X) Animation */
+        .strike-container {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            z-index: 50;
+            display: flex;
+            gap: 20px;
+            pointer-events: none;
+            opacity: 0;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .strike-container.show {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+        }
+
+        .strike-x {
+            color: #ef4444;
+            font-family: 'Anton', sans-serif;
+            font-size: 15rem;
+            text-shadow: 0 0 20px black, 0 0 40px #7f1d1d, -4px -4px 0 #000, 4px -4px 0 #000, -4px 4px 0 #000, 4px 4px 0 #000;
+            line-height: 0.8;
+            filter: drop-shadow(0px 10px 15px rgba(0,0,0,0.5));
+        }
+
+        /* Blinking text for total score */
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .score-blink {
+            animation: blink 1s infinite;
+        }
+
+        /* Modal Styles */
+        .modal-bg {
+            background-color: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(5px);
+        }
+
+    </style>
+</head>
+<body>
+
+    <header class="w-full p-4 flex justify-between items-center bg-slate-900/80 border-b border-slate-700 shadow-lg z-10">
+        <div class="flex items-center gap-3">
+            <i class="fa-solid fa-users text-blue-400 text-3xl"></i>
+            <div>
+                <h1 class="anton-font text-3xl sm:text-4xl text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 tracking-wider">
+                    SURVEY 100
+                </h1>
+                <p class="text-xs text-blue-300">Babak: <span id="roundIndicator">1</span> / 3</p>
+            </div>
+        </div>
+
+        <div class="flex flex-col items-end">
+            <span class="text-xs text-slate-400 font-bold uppercase tracking-widest">Total Skor</span>
+            <div class="bg-black border-2 border-yellow-500 rounded px-4 py-1 flex items-center justify-center min-w-[100px] shadow-[0_0_15px_rgba(234,179,8,0.3)]">
+                <span id="totalScore" class="anton-font text-3xl text-yellow-400">0</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow flex flex-col items-center justify-center p-4 relative w-full max-w-4xl mx-auto">
+        
+        <!-- Question Box -->
+        <div class="w-full bg-blue-900/60 border-2 border-blue-400 rounded-xl p-4 mb-6 text-center shadow-xl backdrop-blur-sm relative">
+             <div class="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                 Pertanyaan
+             </div>
+            <h2 id="questionText" class="text-xl sm:text-2xl font-bold mt-2 text-white drop-shadow-md">
+                Memuat pertanyaan...
+            </h2>
+        </div>
+
+        <!-- The Board -->
+        <div class="w-full board-container">
+            <div id="answersGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2">
+                <!-- Answer slots will be injected here -->
+            </div>
+        </div>
+
+        <!-- Host Controls (Input) -->
+        <div class="w-full mt-8 bg-slate-800/80 p-4 rounded-xl border border-slate-700 shadow-lg">
+            <div class="flex flex-col sm:flex-row gap-3">
+                <input type="text" id="guessInput" class="flex-grow bg-slate-900 border-2 border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors text-lg font-bold" placeholder="Ketik tebakan di sini..." autocomplete="off">
+                <div class="flex gap-2">
+                    <button id="guessBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg active:scale-95 transition-transform">
+                        TEBAK
+                    </button>
+                    <button id="wrongBtn" class="bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg active:scale-95 transition-transform" title="Tandai Salah">
+                        <i class="fa-solid fa-xmark text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="mt-4 flex justify-between items-center border-t border-slate-700 pt-3">
+                <div class="flex items-center gap-2 text-red-400 font-bold" id="strikesContainer">
+                    <span>Kesalahan: </span>
+                    <!-- Small strikes will appear here -->
+                </div>
+                <button id="nextRoundBtn" class="bg-green-600 hover:bg-green-500 text-white text-sm font-bold py-2 px-4 rounded shadow active:scale-95 transition-transform hidden">
+                    Babak Selanjutnya <i class="fa-solid fa-arrow-right ml-1"></i>
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Big Strike Animation Container -->
+    <div id="bigStrike" class="strike-container">
+        <!-- Xs will be injected here based on strike count -->
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="gameOverModal" class="fixed inset-0 modal-bg z-50 flex items-center justify-center hidden">
+        <div class="bg-slate-800 border-2 border-blue-500 rounded-2xl p-8 max-w-md w-full text-center shadow-2xl transform scale-95 transition-transform duration-300">
+            <h2 class="anton-font text-5xl text-yellow-400 mb-2">PERMAINAN SELESAI</h2>
+            <p class="text-slate-300 mb-6">Terima kasih telah bermain Survey 100!</p>
+            
+            <div class="bg-slate-900 rounded-xl p-4 mb-6 border border-slate-700">
+                <p class="text-sm text-slate-400 uppercase tracking-wider mb-1">Total Skor Akhir</p>
+                <p id="finalScore" class="anton-font text-6xl text-white score-blink">0</p>
+            </div>
+
+            <button onclick="restartGame()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg active:scale-95 transition-all">
+                MAIN LAGI
+            </button>
+        </div>
+    </div>
+
+    <!-- Message Box (Replacing alert) -->
+    <div id="msgBox" class="fixed inset-0 modal-bg z-[60] flex items-center justify-center hidden">
+        <div class="bg-slate-800 border border-slate-600 rounded-xl p-6 max-w-sm w-full text-center shadow-2xl">
+            <p id="msgText" class="text-lg text-white mb-6 font-bold"></p>
+            <button onclick="closeMsgBox()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded shadow active:scale-95">
+                OK
+            </button>
+        </div>
+    </div>
+
+
+    <script>
+        // Database Pertanyaan
+        const questionDatabase = [
+            {
+                question: "Sebutkan alasan orang terlambat masuk kantor",
+                answers: [
+                    { text: "MACET", points: 45 },
+                    { text: "BANGUN KESIANGAN", points: 28 },
+                    { text: "BAN BOCOR", points: 15 },
+                    { text: "HUJAN", points: 7 },
+                    { text: "SAKIT", points: 5 }
+                ]
+            },
+            {
+                question: "Apa yang biasa orang lakukan saat mati lampu?",
+                answers: [
+                    { text: "CARI LILIN / SENTER", points: 40 },
+                    { text: "TIDUR", points: 25 },
+                    { text: "MAIN HP", points: 18 },
+                    { text: "KELUAR RUMAH", points: 10 },
+                    { text: "KIPAS-KIPAS", points: 7 }
+                ]
+            },
+            {
+                question: "Benda apa yang sering hilang atau terselip di rumah?",
+                answers: [
+                    { text: "REMOT TV", points: 38 },
+                    { text: "KUNCI", points: 30 },
+                    { text: "UANG KOIN", points: 15 },
+                    { text: "KAOS KAKI", points: 10 },
+                    { text: "GUNTING / JEPITAN", points: 7 }
+                ]
+            },
+            {
+                question: "Sebutkan sesuatu yang identik dengan Hari Kemerdekaan RI",
+                answers: [
+                    { text: "UPACARA", points: 35 },
+                    { text: "PANJAT PINANG", points: 25 },
+                    { text: "BENDERA MERAH PUTIH", points: 20 },
+                    { text: "LOMBA", points: 15 },
+                    { text: "KERUPUK", points: 5 }
+                ]
+            },
+            {
+                question: "Sebutkan alasan orang sering begadang",
+                answers: [
+                    { text: "KERJAAN / TUGAS", points: 42 },
+                    { text: "NONTON BOLA", points: 23 },
+                    { text: "MAIN GAME", points: 18 },
+                    { text: "NONTON FILM / DRAKOR", points: 12 },
+                    { text: "INSOMNIA", points: 5 }
+                ]
+            }
+        ];
+
+        let currentRound = 0;
+        let totalScore = 0;
+        let strikes = 0;
+        let currentQuestion = null;
+        let revealedAnswers = [];
+        let availableQuestions = [...questionDatabase];
+        const MAX_ROUNDS = 3;
+        const MAX_STRIKES = 3;
+
+        // Sound objects (using Audio if available, fallback to silent)
+        // Since we can't use external URLs, we will just use visual cues, 
+        // but normally you'd put Tone.js or Audio() here.
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initGame();
+
+            // Event Listeners
+            document.getElementById('guessBtn').addEventListener('click', handleGuess);
+            document.getElementById('wrongBtn').addEventListener('click', handleWrongGuess);
+            document.getElementById('nextRoundBtn').addEventListener('click', startRound);
+            
+            // Enter key to guess
+            document.getElementById('guessInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleGuess();
+            });
+        });
+
+        function initGame() {
+            totalScore = 0;
+            currentRound = 0;
+            updateScore(0);
+            availableQuestions = [...questionDatabase]; // Reset questions
+            
+            // Shuffle questions
+            for (let i = availableQuestions.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [availableQuestions[i], availableQuestions[j]] = [availableQuestions[j], availableQuestions[i]];
+            }
+
+            document.getElementById('gameOverModal').classList.add('hidden');
+            startRound();
+        }
+
+        function startRound() {
+            if (currentRound >= MAX_ROUNDS || availableQuestions.length === 0) {
+                endGame();
+                return;
+            }
+
+            currentRound++;
+            strikes = 0;
+            revealedAnswers = [];
+            
+            // Pop a question
+            currentQuestion = availableQuestions.pop();
+            
+            // Sort answers by points descending just to be safe
+            currentQuestion.answers.sort((a, b) => b.points - a.points);
+
+            updateUIForNewRound();
+        }
+
+        function updateUIForNewRound() {
+            document.getElementById('roundIndicator').innerText = currentRound;
+            document.getElementById('questionText').innerText = currentQuestion.question;
+            document.getElementById('guessInput').value = '';
+            document.getElementById('guessInput').focus();
+            document.getElementById('nextRoundBtn').classList.add('hidden');
+            updateSmallStrikes();
+
+            const grid = document.getElementById('answersGrid');
+            grid.innerHTML = '';
+
+            // Generate slots
+            // Fill up to even numbers for aesthetic grid (e.g., 6 or 8 slots)
+            const numSlots = Math.max(currentQuestion.answers.length, currentQuestion.answers.length % 2 !== 0 ? currentQuestion.answers.length + 1 : currentQuestion.answers.length);
+            
+            for (let i = 0; i < numSlots; i++) {
+                const isRealAnswer = i < currentQuestion.answers.length;
+                
+                const slot = document.createElement('div');
+                slot.className = `answer-slot ${!isRealAnswer ? 'opacity-30' : ''}`;
+                slot.id = `slot-${i}`;
+
+                if (isRealAnswer) {
+                    slot.innerHTML = `
+                        <div class="flipper">
+                            <div class="front">
+                                <div class="answer-number">${i + 1}</div>
+                            </div>
+                            <div class="back">
+                                <div class="answer-text" id="text-${i}"></div>
+                                <div class="answer-points" id="points-${i}"></div>
+                            </div>
+                        </div>
+                    `;
+                    // Add click event for host to manually reveal (cheat/fallback)
+                    slot.addEventListener('dblclick', () => revealAnswer(i));
+                } else {
+                    // Empty dummy slot for grid balance
+                    slot.innerHTML = `<div class="w-full h-full bg-slate-800"></div>`;
+                }
+                
+                grid.appendChild(slot);
+            }
+        }
+
+        function handleGuess() {
+            const inputEl = document.getElementById('guessInput');
+            const guess = inputEl.value.trim().toLowerCase();
+            
+            if (!guess) return;
+
+            // Check if guess matches any answer (simple string matching logic)
+            let foundIndex = -1;
+            
+            for (let i = 0; i < currentQuestion.answers.length; i++) {
+                // Split answer into words for flexible matching (e.g. "cari lilin" matches "lilin")
+                const answerStr = currentQuestion.answers[i].text.toLowerCase();
+                const guessWords = guess.split(' ');
+                
+                // Very basic matching: if the guessed word is in the answer, or vice versa
+                // In a real app, you'd use fuzzy search (like fuse.js)
+                
+                if (answerStr === guess || answerStr.includes(guess) || guess.includes(answerStr)) {
+                    // Only match if it's a significant part (length > 2)
+                    if (guess.length > 2) {
+                         foundIndex = i;
+                         break;
+                    }
+                }
+            }
+
+            inputEl.value = ''; // clear input
+            inputEl.focus();
+
+            if (foundIndex !== -1) {
+                if (!revealedAnswers.includes(foundIndex)) {
+                    revealAnswer(foundIndex);
+                } else {
+                    showMessage("Jawaban sudah ditebak!");
+                }
+            } else {
+                handleWrongGuess();
+            }
+        }
+
+        function revealAnswer(index) {
+            if (revealedAnswers.includes(index)) return;
+            
+            revealedAnswers.push(index);
+            const ansData = currentQuestion.answers[index];
+            
+            document.getElementById(`text-${index}`).innerText = ansData.text;
+            document.getElementById(`points-${index}`).innerText = ansData.points;
+            
+            const slot = document.getElementById(`slot-${index}`);
+            slot.classList.add('revealed');
+            
+            updateScore(ansData.points);
+
+            checkRoundComplete();
+        }
+
+        function updateScore(pointsToAdd) {
+            totalScore += pointsToAdd;
+            const scoreEl = document.getElementById('totalScore');
+            scoreEl.innerText = totalScore;
+            
+            // Pop effect
+            scoreEl.parentElement.classList.add('scale-110');
+            setTimeout(() => scoreEl.parentElement.classList.remove('scale-110'), 200);
+        }
+
+        function handleWrongGuess() {
+            if (strikes >= MAX_STRIKES) return;
+            
+            strikes++;
+            updateSmallStrikes();
+            showBigStrike();
+
+            if (strikes >= MAX_STRIKES) {
+                setTimeout(() => {
+                    revealAllAnswers();
+                    document.getElementById('nextRoundBtn').classList.remove('hidden');
+                }, 1500);
+            }
+        }
+
+        function updateSmallStrikes() {
+            const container = document.getElementById('strikesContainer');
+            // Keep the "Kesalahan: " text, update the Xs
+            let html = '<span>Kesalahan: </span>';
+            for (let i = 0; i < MAX_STRIKES; i++) {
+                if (i < strikes) {
+                    html += '<i class="fa-solid fa-xmark text-2xl text-red-500 drop-shadow"></i>';
+                } else {
+                    html += '<i class="fa-solid fa-xmark text-2xl text-slate-700"></i>';
+                }
+            }
+            container.innerHTML = html;
+        }
+
+        function showBigStrike() {
+            const container = document.getElementById('bigStrike');
+            container.innerHTML = '';
+            
+            // Show number of Xs based on current strikes
+            for (let i = 0; i < strikes; i++) {
+                const x = document.createElement('div');
+                x.className = 'strike-x';
+                x.innerText = 'X';
+                container.appendChild(x);
+            }
+
+            container.classList.add('show');
+            
+            // Hide after 1 second
+            setTimeout(() => {
+                container.classList.remove('show');
+            }, 1000);
+        }
+
+        function revealAllAnswers() {
+            for (let i = 0; i < currentQuestion.answers.length; i++) {
+                if (!revealedAnswers.includes(i)) {
+                    // Reveal without adding points
+                    const ansData = currentQuestion.answers[i];
+                    document.getElementById(`text-${i}`).innerText = ansData.text;
+                    document.getElementById(`points-${i}`).innerText = ansData.points;
+                    
+                    const slot = document.getElementById(`slot-${i}`);
+                    slot.classList.add('revealed');
+                    
+                    // visually distinct for missed answers
+                    document.getElementById(`text-${i}`).parentElement.style.background = 'linear-gradient(to bottom, #94a3b8, #64748b)';
+                }
+            }
+            document.getElementById('nextRoundBtn').classList.remove('hidden');
+        }
+
+        function checkRoundComplete() {
+            if (revealedAnswers.length === currentQuestion.answers.length) {
+                setTimeout(() => {
+                    document.getElementById('nextRoundBtn').classList.remove('hidden');
+                }, 1000);
+            }
+        }
+
+        function endGame() {
+            document.getElementById('finalScore').innerText = totalScore;
+            const modal = document.getElementById('gameOverModal');
+            modal.classList.remove('hidden');
+            
+            // Small entrance animation
+            setTimeout(() => {
+                modal.firstElementChild.classList.remove('scale-95');
+                modal.firstElementChild.classList.add('scale-100');
+            }, 10);
+        }
+
+        function restartGame() {
+            const modal = document.getElementById('gameOverModal');
+            modal.firstElementChild.classList.remove('scale-100');
+            modal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                initGame();
+            }, 300);
+        }
+
+        function showMessage(text) {
+            document.getElementById('msgText').innerText = text;
+            document.getElementById('msgBox').classList.remove('hidden');
+        }
+
+        function closeMsgBox() {
+            document.getElementById('msgBox').classList.add('hidden');
+            document.getElementById('guessInput').focus();
+        }
+
+    </script>
+</body>
+</html>
+
+```
